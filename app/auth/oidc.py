@@ -5,6 +5,7 @@ Handles: discovery, authorization URL building, token exchange, JWT validation.
 """
 
 import hashlib
+import logging
 import base64
 import secrets
 
@@ -13,8 +14,13 @@ import jwt
 from jwt import PyJWKClient
 
 from app.config import settings
+from app.auth.utils import build_query_string
+
+logger = logging.getLogger(__name__)
 
 # Cache for OIDC discovery document
+# NOTE: In production, add TTL-based cache invalidation (e.g., 24h)
+# to pick up provider configuration changes and key rotations.
 _oidc_config_cache = None
 
 
@@ -34,6 +40,7 @@ async def get_oidc_config() -> dict:
     async with httpx.AsyncClient() as client:
         response = await client.get(discovery_url)
         response.raise_for_status()
+        logger.info("Fetched OIDC discovery document")
         _oidc_config_cache = response.json()
         return _oidc_config_cache
 
@@ -77,7 +84,7 @@ async def build_auth_url() -> tuple[str, str, str]:
     }
 
     auth_endpoint = config["authorization_endpoint"]
-    query_string = "&".join(f"{k}={v}" for k, v in params.items())
+    query_string = build_query_string(params)
 
     return f"{auth_endpoint}?{query_string}", state, code_verifier
 
@@ -102,6 +109,7 @@ async def exchange_code_for_tokens(code: str, code_verifier: str) -> dict:
     async with httpx.AsyncClient() as client:
         response = await client.post(config["token_endpoint"], data=token_data)
         response.raise_for_status()
+        logger.info("Token exchange successful")
         tokens = response.json()
 
     # Validate and decode the ID token
@@ -134,4 +142,5 @@ def validate_id_token(id_token: str, oidc_config: dict) -> dict:
         },
     )
 
+    logger.info("ID token validated successfully")
     return claims

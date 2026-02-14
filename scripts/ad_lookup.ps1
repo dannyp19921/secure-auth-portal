@@ -2,7 +2,7 @@
 # PowerShell script for Active Directory user and group lookups.
 # Demonstrates AD administration tasks relevant for a Platform Engineer.
 #
-# In PIT context: Managing users, groups, and troubleshooting
+# Used for managing users, groups, and troubleshooting
 # authentication issues in the on-prem AD environment.
 #
 # Usage:

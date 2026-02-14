@@ -13,5 +13,8 @@ __pycache__/
 *.tfstate.backup
 .terraform.lock.hcl
 terraform.tfvars
-__pycache__/
-.pytest_cache/
+
+# Temp files
+full_codebase.txt
+repomix-output.txt
+repomix-output.xml

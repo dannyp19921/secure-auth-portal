@@ -7,7 +7,6 @@ Run with: pytest tests/ -v
 import hashlib
 import base64
 import secrets
-import os
 
 import pytest
 
@@ -88,3 +87,68 @@ class TestConfigLoading:
         )
         assert settings.redirect_uri == "http://localhost:8000/callback"
         assert settings.vault_secret_path == "secure-auth-portal/entra"
+
+
+class TestIDPorten:
+    """Test ID-porten authentication URL building."""
+
+    def test_build_auth_url_contains_required_params(self):
+        """Authorization URL must include all OIDC parameters."""
+        from app.auth.idporten import build_idporten_auth_url
+
+        url = build_idporten_auth_url(
+            client_id="test-client",
+            redirect_uri="http://localhost:8000/callback",
+            state="test-state",
+            code_challenge="test-challenge",
+        )
+        assert "client_id=test-client" in url
+        assert "response_type=code" in url
+        assert "code_challenge=test-challenge" in url
+        assert "code_challenge_method=S256" in url
+        assert "login.idporten.no" in url
+
+    def test_security_level_defaults_to_high(self):
+        """Default security level should be high (BankID)."""
+        from app.auth.idporten import build_idporten_auth_url
+
+        url = build_idporten_auth_url(
+            client_id="test",
+            redirect_uri="http://localhost:8000/callback",
+            state="s",
+            code_challenge="c",
+        )
+        assert "idporten-loa-high" in url
+
+    def test_security_level_substantial(self):
+        """Substantial level should use MinID acr value."""
+        from app.auth.idporten import build_idporten_auth_url
+
+        url = build_idporten_auth_url(
+            client_id="test",
+            redirect_uri="http://localhost:8000/callback",
+            state="s",
+            code_challenge="c",
+            security_level="substantial",
+        )
+        assert "idporten-loa-substantial" in url
+
+
+class TestUtils:
+    """Test shared utility functions."""
+
+    def test_build_query_string(self):
+        """Query string should contain all parameters."""
+        from app.auth.utils import build_query_string
+
+        result = build_query_string({"key": "value", "foo": "bar"})
+        assert "key=value" in result
+        assert "foo=bar" in result
+        assert "&" in result
+
+    def test_build_query_string_encodes_special_chars(self):
+        """Special characters should be URL-encoded."""
+        from app.auth.utils import build_query_string
+
+        result = build_query_string({"redirect": "http://localhost:8000/callback"})
+        assert "http%3A%2F%2Flocalhost" in result

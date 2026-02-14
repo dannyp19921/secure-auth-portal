@@ -8,6 +8,7 @@ import os
 import logging
 
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +62,7 @@ class Settings(BaseSettings):
     vault_token: str = ""
     vault_secret_path: str = "secure-auth-portal/entra"
 
-    class Config:
-        env_file = ".env"
+    model_config = ConfigDict(env_file=".env")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

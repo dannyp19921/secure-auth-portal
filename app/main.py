@@ -12,7 +12,11 @@ from app.auth.dependencies import get_current_user
 from app.auth.saml_routes import router as saml_router
 from app.config import settings
 
-app = FastAPI(title="Secure Auth Portal", version="0.2.0")
+app = FastAPI(title="Secure Auth Portal", version="0.3.0")
+
+# NOTE: Inline HTML is used for simplicity in this demo.
+# In production, use Jinja2 templates in app/templates/ to separate
+# presentation from logic (Separation of Concerns).
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
 app.include_router(saml_router)
 
@@ -77,21 +81,68 @@ async def login(request: Request):
 
 
 @app.get("/callback")
-async def callback(request: Request, code: str, state: str):
-    """Receive auth code from Entra ID and exchange for tokens."""
+async def callback(request: Request, code: str = "", state: str = ""):
+    """
+    Receive auth code from Entra ID and exchange for tokens.
+    Includes error handling for common authentication failures.
+    """
+    # 1. Verify state parameter (CSRF protection)
     stored_state = request.session.get("oauth_state")
     if state != stored_state:
-        return HTMLResponse("Invalid state — possible CSRF attack.", status_code=400)
+        return HTMLResponse(
+            "<h2>Authentication Error</h2>"
+            "<p>Invalid state parameter. This could indicate a CSRF attack "
+            "or an expired session.</p>"
+            "<p><strong>Troubleshooting:</strong> Clear cookies and try again.</p>"
+            "<a href=\"/\">Back to home</a>",
+            status_code=400,
+        )
 
-    code_verifier = request.session.get("code_verifier")
-    claims = await exchange_code_for_tokens(code, code_verifier)
+    # 2. Check that we received an authorization code
+    if not code:
+        return HTMLResponse(
+            "<h2>Authentication Error</h2>"
+            "<p>No authorization code received from Entra ID.</p>"
+            "<p><strong>Possible causes:</strong> User denied consent, "
+            "or the app registration is misconfigured.</p>"
+            "<a href=\"/\">Back to home</a>",
+            status_code=400,
+        )
 
+    # 3. Exchange code for tokens (with error handling)
+    try:
+        code_verifier = request.session.get("code_verifier")
+        claims = await exchange_code_for_tokens(code, code_verifier)
+    except Exception as e:
+        error_msg = str(e)
+
+        # Provide specific guidance based on common errors
+        if "invalid_client" in error_msg:
+            hint = "Client secret may be expired or incorrect. Check Vault/env config."
+        elif "invalid_grant" in error_msg:
+            hint = "Authorization code expired or already used. Try logging in again."
+        elif "JWKS" in error_msg or "signature" in error_msg.lower():
+            hint = "Token signature validation failed. JWKS keys may have rotated."
+        else:
+            hint = "Check application logs for details."
+
+        return HTMLResponse(
+            f"<h2>Authentication Error</h2>"
+            f"<p>Token exchange failed.</p>"
+            f"<p><strong>Hint:</strong> {hint}</p>"
+            f"<p style=\"color: #888; font-size: 0.85rem;\">Technical: {error_msg}</p>"
+            f"<a href=\"/\">Back to home</a>",
+            status_code=500,
+        )
+
+    # 4. Store user info in session
     request.session["user"] = {
         "name": claims.get("name", "Unknown"),
         "email": claims.get("preferred_username", ""),
         "sub": claims.get("sub", ""),
     }
 
+    # 5. Clean up temporary session data
     request.session.pop("oauth_state", None)
     request.session.pop("code_verifier", None)
 
@@ -150,7 +201,6 @@ async def idporten_info(request: Request):
     import secrets
     state = secrets.token_urlsafe(32)
     verifier, challenge = generate_pkce_pair()
-    demo_url = build_idporten_auth_url("demo-client-id", "http://localhost:8000/callback", state, challenge)
     return f"""
     <html>
         <head><title>ID-porten - Secure Auth Portal</title></head>

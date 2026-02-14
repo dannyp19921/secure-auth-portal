@@ -8,7 +8,6 @@ SAML vs OIDC:
 - OIDC is common in modern cloud apps
 - Both achieve SSO, but via different mechanisms
 
-In PIT's context: SAML for legacy on-prem systems, OIDC for new cloud apps.
 
 NOTE: This SP implementation demonstrates the SAML architecture and flow.
 Full IdP integration requires:

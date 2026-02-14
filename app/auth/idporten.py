@@ -11,9 +11,9 @@ Key facts:
 - Security levels: "substantial" (MinID) and "high" (BankID)
 - Discovery endpoint: https://login.idporten.no/.well-known/openid-configuration
 
-In PIT's context: Used when citizens or external partners need
-access to police services.
 """
+
+from app.auth.utils import build_query_string
 
 # ID-porten OIDC configuration
 IDPORTEN_CONFIG = {
@@ -76,5 +76,5 @@ def build_idporten_auth_url(
         "response_mode": "query",
     }
 
-    query = "&".join(f"{k}={v}" for k, v in params.items())
+    query = build_query_string(params)
     return f"{IDPORTEN_CONFIG['authorization_endpoint']}?{query}"
