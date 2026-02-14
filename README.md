@@ -145,6 +145,15 @@ ID-porten module demonstrates Norwegian public sector authentication:
 - Security levels: substantial (MinID) and high (BankID)
 - Info endpoint: `/idporten`
 
+## Troubleshooting
+
+Built-in diagnostic tool for systematic root cause analysis:
+```bash
+python scripts/troubleshoot_auth.py --check all
+```
+
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for the complete guide covering OIDC, SAML, Vault, and PKI failures.
+
 ## Active Directory (PowerShell)
 ```powershell
 # User lookup
@@ -189,8 +198,10 @@ secure-auth-portal/
 |-- scripts/
 |   |-- ad_lookup.ps1          # PowerShell AD administration
 |   |-- setup_pki.sh           # Vault PKI CA setup
+|   |-- troubleshoot_auth.py   # Authentication diagnostics
 |-- tests/
 |   |-- test_auth.py           # Unit tests (13 tests)
+|-- TROUBLESHOOTING.md
 |-- .env.example
 |-- .gitignore
 |-- requirements.txt
