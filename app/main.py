@@ -58,7 +58,7 @@ async def home(request: Request):
                 <h1 style="color: #1b3a5c;">Secure Auth Portal</h1>
                 {user_html}
                 <p style="color: #999; font-size: 0.8rem; margin-top: 2rem;">
-                    FastAPI · OIDC · Entra ID · Vault · Terraform</p>
+                    FastAPI · OIDC · SAML · Entra ID · ID-porten · Vault · Terraform</p>
             </div>
         </body>
     </html>
@@ -141,6 +141,49 @@ async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/")
 
+
+@app.get("/idporten", response_class=HTMLResponse)
+async def idporten_info(request: Request):
+    """ID-porten information and demo endpoint."""
+    from app.auth.idporten import IDPORTEN_CONFIG, build_idporten_auth_url
+    from app.auth.oidc import generate_pkce_pair
+    import secrets
+    state = secrets.token_urlsafe(32)
+    verifier, challenge = generate_pkce_pair()
+    demo_url = build_idporten_auth_url("demo-client-id", "http://localhost:8000/callback", state, challenge)
+    return f"""
+    <html>
+        <head><title>ID-porten - Secure Auth Portal</title></head>
+        <body style="font-family: sans-serif; display: flex; align-items: center;
+                     justify-content: center; min-height: 100vh; background: #f0f2f5;">
+            <div style="background: white; padding: 3rem; border-radius: 12px;
+                        box-shadow: 0 4px 24px rgba(0,0,0,0.1); max-width: 600px;">
+                <h2 style="color: #c0392b;">ID-porten (Norwegian Public Auth)</h2>
+                <p>ID-porten uses the same OIDC flow as Entra ID.</p>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;
+                            border-left: 4px solid #c0392b; margin: 1rem 0;">
+                    <strong>How it works:</strong>
+                    <ol style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                        <li>Same Authorization Code Flow with PKCE</li>
+                        <li>User chooses BankID, MinID, etc.</li>
+                        <li>Security levels: substantial (MinID) or high (BankID)</li>
+                        <li>Token exchange and JWT validation identical to Entra ID</li>
+                    </ol>
+                </div>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                    <strong>Discovery:</strong><br>
+                    <code style="font-size: 0.85rem;">{IDPORTEN_CONFIG["discovery_url"]}</code>
+                </div>
+                <div style="background: #fff3cd; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                    <strong>Registration required:</strong> To use ID-porten, register at
+                    Samarbeidsportalen (Digitaliseringsdirektoratet).
+                </div>
+                <p><a href="/" style="color: #666;">Back to home</a> |
+                   <a href="/login" style="color: #1b3a5c;">Log in with OIDC</a></p>
+            </div>
+        </body>
+    </html>
+    """
 
 @app.get("/health")
 async def health():
