@@ -8,3 +8,4 @@ PyJWT[crypto]==2.9.0
 pydantic-settings==2.5.0
 hvac==2.3.0
 pytest==8.3.0
+python3-saml==1.16.0

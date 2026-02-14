@@ -9,10 +9,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth.oidc import build_auth_url, exchange_code_for_tokens
 from app.auth.dependencies import get_current_user
+from app.auth.saml_routes import router as saml_router
 from app.config import settings
 
 app = FastAPI(title="Secure Auth Portal", version="0.2.0")
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
+app.include_router(saml_router)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -39,7 +41,11 @@ async def home(request: Request):
             </p>
             <a href="/login" style="display: inline-block; padding: 0.8rem 2rem;
                background: #1b3a5c; color: white; text-decoration: none; border-radius: 8px;">
-               Log in with Entra ID</a>
+               Log in with Entra ID (OIDC)</a>
+            <br><br>
+            <a href="/saml/login" style="display: inline-block; padding: 0.8rem 2rem;
+               background: #4a6741; color: white; text-decoration: none; border-radius: 8px;">
+               Log in with SAML</a>
         """
 
     return f"""

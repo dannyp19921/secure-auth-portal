@@ -1,0 +1,28 @@
+{
+    "strict": true,
+    "debug": true,
+    "sp": {
+        "entityId": "http://localhost:8000/saml/metadata",
+        "assertionConsumerService": {
+            "url": "http://localhost:8000/saml/acs",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+        },
+        "singleLogoutService": {
+            "url": "http://localhost:8000/saml/sls",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+    },
+    "idp": {
+        "entityId": "https://sts.windows.net/TENANT_ID/",
+        "singleSignOnService": {
+            "url": "https://login.microsoftonline.com/TENANT_ID/saml2",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "singleLogoutService": {
+            "url": "https://login.microsoftonline.com/TENANT_ID/saml2",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "x509cert": "PASTE_IDP_CERTIFICATE_HERE"
+    }
+}
