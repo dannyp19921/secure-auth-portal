@@ -17,30 +17,77 @@ Built as a hands-on exploration of the technologies used in platform engineering
 | HashiCorp Vault | Secrets + PKI CA | Secrets and certificate management |
 | Terraform | Entra ID app registration | Infrastructure as Code |
 | Git | Conventional commits | Version control |
-| pytest | Unit tests | Quality assurance |
+| pytest | Unit tests (13 tests) | Quality assurance |
 
 ## Architecture
-```
-Browser --> [FastAPI App] --OIDC--> [Entra ID]
-                |
-                +--SAML--> [SAML IdP (ADFS/Entra)]
-                |
-                +--OIDC--> [ID-porten (BankID/MinID)]
-                |
-                +--------> [Vault: secrets + PKI CA]
-                |
-         [Terraform] ----> [Entra ID App Registration]
-         [PowerShell] ---> [Active Directory]
+```mermaid
+graph TB
+    User["👤 User (Browser)"]
+
+    subgraph App["FastAPI Application"]
+        Main["main.py\nRoutes & UI"]
+        OIDC["oidc.py\nOIDC/OAuth2"]
+        SAML["saml_routes.py\nSAML 2.0 SP"]
+        IDP["idporten.py\nID-porten"]
+        Config["config.py\nSettings"]
+        Utils["utils.py\nShared utilities"]
+    end
+
+    subgraph Identity["Identity Providers"]
+        EntraID["Microsoft\nEntra ID"]
+        ADFS["ADFS / SAML IdP"]
+        IDPorten["ID-porten\nBankID / MinID"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        Vault["HashiCorp Vault\nSecrets + PKI CA"]
+        TF["Terraform\nIaC"]
+        AD["Active Directory\nOn-prem"]
+        PS["PowerShell\nAD Scripts"]
+    end
+
+    User -->|"1. Login"| Main
+    Main --> OIDC
+    Main --> SAML
+    Main --> IDP
+    OIDC -->|"Authorization Code + PKCE"| EntraID
+    SAML -->|"SAML Assertion"| ADFS
+    IDP -->|"OIDC + acr_values"| IDPorten
+    Config -->|"Fetch secrets"| Vault
+    TF -->|"Provision app registration"| EntraID
+    PS -->|"User/group management"| AD
 ```
 
-## Auth Flow (OIDC with Entra ID)
+## OIDC Authentication Flow
+```mermaid
+sequenceDiagram
+    actor User
+    participant App as FastAPI App
+    participant Entra as Entra ID
 
-1. User clicks "Log in" - app redirects to Entra ID with PKCE challenge
-2. User authenticates at Microsoft
-3. Entra ID redirects back with authorization code
-4. Backend exchanges code + code_verifier for tokens (server-to-server)
-5. JWT ID token validated: RS256 signature, issuer, audience, expiration
-6. User info from token claims stored in session
+    User->>App: 1. Click "Log in"
+    App->>App: Generate PKCE pair + state
+    App->>Entra: 2. Redirect with code_challenge
+    Entra->>User: 3. Show login page
+    User->>Entra: 4. Enter credentials
+    Entra->>App: 5. Redirect with authorization code
+    App->>Entra: 6. Exchange code + code_verifier for tokens
+    Entra->>App: 7. Return ID token (JWT)
+    App->>App: 8. Validate JWT (RS256, issuer, audience, exp)
+    App->>User: 9. Access granted — show dashboard
+```
+
+## Secrets Management Flow
+```mermaid
+flowchart LR
+    App["FastAPI App"] -->|"VAULT_ENABLED=true"| Vault["HashiCorp Vault\n(KV v2)"]
+    App -->|"Fallback"| Env[".env file"]
+    Vault -->|"client_secret"| App
+    Env -->|"client_secret"| App
+
+    style Vault fill:#7b42bc,color:#fff
+    style Env fill:#f0ad4e,color:#000
+```
 
 ## Quick Start
 ```bash
@@ -57,10 +104,10 @@ uvicorn app.main:app --reload
 ## Entra ID Setup
 
 1. Go to entra.microsoft.com > App registrations > New registration
-2. Name: "Secure Auth Portal", Redirect URI: Web + http://localhost:8000/callback
+2. Name: "Secure Auth Portal", Redirect URI: Web + `http://localhost:8000/callback`
 3. Note the Application (client) ID and Directory (tenant) ID
 4. Certificates & secrets > New client secret > copy value
-5. Add all three values to .env
+5. Add all three values to `.env`
 
 ## Vault Integration
 ```bash
@@ -87,8 +134,8 @@ vault write pki/issue/auth-portal common_name="api.auth-portal.internal" ttl=24h
 ## SAML 2.0
 
 The app includes a SAML Service Provider with:
-- SP metadata endpoint: /saml/metadata
-- Assertion Consumer Service: /saml/acs
+- SP metadata endpoint: `/saml/metadata`
+- Assertion Consumer Service: `/saml/acs`
 - Protocol comparison (SAML vs OIDC) documentation
 
 ## ID-porten
@@ -96,7 +143,7 @@ The app includes a SAML Service Provider with:
 ID-porten module demonstrates Norwegian public sector authentication:
 - Same OIDC flow as Entra ID
 - Security levels: substantial (MinID) and high (BankID)
-- Info endpoint: /idporten
+- Info endpoint: `/idporten`
 
 ## Active Directory (PowerShell)
 ```powershell
@@ -119,14 +166,14 @@ terraform plan -var="tenant_id=YOUR-TENANT-ID"
 
 ## Testing
 ```bash
-pytest tests/ -v
+pytest tests/ -v   # 13 tests covering PKCE, config, ID-porten, utilities
 ```
 
 ## Project Structure
 ```
 secure-auth-portal/
 |-- app/
-|   |-- main.py                # FastAPI routes
+|   |-- main.py                # FastAPI routes + UI
 |   |-- config.py              # Settings with Vault integration
 |   |-- auth/
 |       |-- oidc.py            # OIDC: discovery, PKCE, token exchange, JWT validation
@@ -134,6 +181,7 @@ secure-auth-portal/
 |       |-- saml_routes.py     # SAML 2.0 Service Provider
 |       |-- saml/settings.json # SAML SP/IdP configuration
 |       |-- idporten.py        # ID-porten OIDC module
+|       |-- utils.py           # Shared utilities (DRY)
 |-- terraform/
 |   |-- main.tf                # Entra ID app registration
 |   |-- variables.tf           # Input variables
@@ -142,7 +190,7 @@ secure-auth-portal/
 |   |-- ad_lookup.ps1          # PowerShell AD administration
 |   |-- setup_pki.sh           # Vault PKI CA setup
 |-- tests/
-|   |-- test_auth.py           # Unit tests
+|   |-- test_auth.py           # Unit tests (13 tests)
 |-- .env.example
 |-- .gitignore
 |-- requirements.txt
